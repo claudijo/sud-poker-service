@@ -1,0 +1,29 @@
+{
+  "name": "sud-poker-service",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "DEBUG=poker-service:* nodemon bin/www",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "cookie-session": "^1.4.0",
+    "debug": "^3.2.7",
+    "express": "^4.17.1",
+    "json-rpc-client-stream": "^1.0.0",
+    "json-rpc-server-stream": "^1.0.0",
+    "mux-demux-stream": "^0.0.4",
+    "poker-ts": "file:../../poker-ts",
+    "serialize-error": "^8.1.0",
+    "ulid": "^2.3.0",
+    "websocket-connection-stream": "^0.0.1",
+    "ws": "^7.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.7"
+  }
+}
