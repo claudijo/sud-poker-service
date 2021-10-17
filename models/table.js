@@ -237,6 +237,11 @@ const getPlayerToAct = id => {
   return table.playerToAct();
 };
 
+const getHandPlayers = (id, index) => {
+  const table = tables[id];
+  return table.handPlayers()
+}
+
 const unfoldingAutomaticActions = id => {
   const table = tables[id];
   const automaticActions = table.automaticActions();
@@ -290,4 +295,5 @@ module.exports = {
   isBettingRoundInProgress,
   areBettingRoundsCompleted,
   getPlayerToAct,
+  getHandPlayers,
 };

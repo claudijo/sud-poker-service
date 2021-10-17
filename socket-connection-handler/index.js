@@ -166,8 +166,8 @@ const socketConnectionHandler = (socket, app) => {
 
       // TODO: Check what is needed from prevTable and only send that
       const prevTable = Table.getTable(id);
-      const unfoldingAutomaticActions = Table.unfoldingAutomaticActions(id);
 
+      const unfoldingAutomaticActions = Table.unfoldingAutomaticActions(id);
       Table.actionTaken(id, action, betSize);
 
       const areAutomaticActionsAmended = Table.isBettingRoundInProgress(id)
@@ -180,9 +180,18 @@ const socketConnectionHandler = (socket, app) => {
       }
 
       const extra = {
-        index: getSeatIndex(socket, id),
+        actor: getSeatIndex(socket, id),
         action,
-        unfoldingAutomaticActions,
+        unfoldingAutomaticActions: unfoldingAutomaticActions.map((action, index) => {
+          switch(action) {
+            case 'check/fold':
+              return Table.getHandPlayers(id)[index] ? 'check' : 'fold';
+            case 'call any':
+              return 'call';
+            default:
+              return action;
+          }
+        }),
         prevTable: areAutomaticActionsAmended ? prevTable : undefined,
       }
 
