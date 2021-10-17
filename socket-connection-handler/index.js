@@ -164,8 +164,7 @@ const socketConnectionHandler = (socket, app) => {
         throw new Error('Action out of turn');
       }
 
-      // TODO: Check what is needed from prevTable and only send that
-      const prevTable = Table.getTable(id);
+      const prevSeats = Table.getSeats(id);
 
       const unfoldingAutomaticActions = Table.unfoldingAutomaticActions(id);
       Table.actionTaken(id, action, betSize);
@@ -187,12 +186,14 @@ const socketConnectionHandler = (socket, app) => {
             case 'check/fold':
               return Table.getHandPlayers(id)[index] ? 'check' : 'fold';
             case 'call any':
-              return 'call';
+              return prevSeats[index].betSize < Table.getSeats(id)[index].betSize
+                ? 'call'
+                // Automatic action call (any) was preceded by checks
+                : 'check'
             default:
               return action;
           }
         }),
-        prevTable: areAutomaticActionsAmended ? prevTable : undefined,
       }
 
       fn(null);
