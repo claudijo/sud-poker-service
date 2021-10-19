@@ -150,6 +150,22 @@ const socketConnectionHandler = (socket, app) => {
     }
   });
 
+  socket.on('standUp', (params, fn) => {
+    debug('standUp', params)
+
+    try {
+      const { id } = params;
+      const index = getSeatIndex(socket, id)
+      Table.standUp(id, index)
+      Table.cancelReservation(id, index)
+      fn(null, baseResponse(socket, id));
+      sendToOthers(socket, id, 'standUp', baseResponse)
+    } catch(error) {
+      debug('standUp error', error)
+      fn(error)
+    }
+  })
+
   socket.on('actionTaken', (params, fn) => {
     debug('actionTaken', params)
     try {
@@ -173,8 +189,7 @@ const socketConnectionHandler = (socket, app) => {
         && unfoldingAutomaticActions[Table.getPlayerToAct(id)]
 
       if (areAutomaticActionsAmended) {
-        // Automatic action was amended. Just nullify the array and don't bother
-        // with sending previous table state
+        // Automatic action was amended. Just nullify the array.
         unfoldingAutomaticActions.fill(null);
       }
 

@@ -159,6 +159,12 @@ const sitDown = (id, index, buyIn) => {
   return serializeTable(table);
 };
 
+const standUp = (id, index) => {
+  const table = tables[id];
+  table.standUp(index)
+  return serializeTable(table)
+}
+
 const startHand = id => {
   const table = tables[id];
   table.startHand();
@@ -290,6 +296,7 @@ module.exports = {
   cancelReservation,
   updateReservation,
   sitDown,
+  standUp,
   actionTaken,
   endBettingRound,
   unfoldingAutomaticActions,
