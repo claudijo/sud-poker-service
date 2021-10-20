@@ -29,7 +29,6 @@ const sendToAll = (socket, id, event, baseResponse = () => ({}), extra = {}) => 
   sendTo(socket.in(id), id, event, baseResponse, extra);
 }
 
-
 const getUser = socket => {
   const user = socket.request.session.user;
 
@@ -45,6 +44,23 @@ const getSeatIndex = (socket, id) => {
   const table = Table.getTable(id);
   return table.reservations.findIndex(reservation => reservation?.uid === user.uid);
 };
+
+const postActionEvents = (socket, id) => {
+  if (Table.isHandInProgress(id) && !Table.isBettingRoundInProgress(id)) {
+    Table.endBettingRound(id);
+    sendToAll(socket, id, 'bettingRoundEnd', baseResponse)
+
+    if (Table.areBettingRoundsCompleted(id)) {
+      Table.showdown(id)
+      sendToAll(socket, id, 'showdown', baseResponse)
+
+      if (Table.numOfSeatedPlayers(id) > 1) {
+        Table.startHand(id)
+        sendToAll(socket, id, 'startHand', baseResponse)
+      }
+    }
+  }
+}
 
 const socketConnectionHandler = (socket, app) => {
   debug('Socket connection');
@@ -160,6 +176,8 @@ const socketConnectionHandler = (socket, app) => {
       Table.cancelReservation(id, index)
       fn(null, baseResponse(socket, id));
       sendToOthers(socket, id, 'standUp', baseResponse)
+
+      postActionEvents(socket, id)
     } catch(error) {
       debug('standUp error', error)
       fn(error)
@@ -214,20 +232,7 @@ const socketConnectionHandler = (socket, app) => {
       fn(null);
       sendToAll(socket, id, 'actionTaken', baseResponse, extra);
 
-      if (Table.isHandInProgress(id) && !Table.isBettingRoundInProgress(id)) {
-        Table.endBettingRound(id);
-        sendToAll(socket, id, 'bettingRoundEnd', baseResponse)
-
-        if (Table.areBettingRoundsCompleted(id)) {
-          Table.showdown(id)
-          sendToAll(socket, id, 'showdown', baseResponse)
-
-          if (Table.numOfSeatedPlayers(id) > 1) {
-            Table.startHand(id)
-            sendToAll(socket, id, 'startHand', baseResponse)
-          }
-        }
-      }
+      postActionEvents(socket, id)
     } catch (error) {
       debug('actionTaken error', error)
       fn(error);
