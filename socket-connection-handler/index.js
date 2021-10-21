@@ -1,66 +1,15 @@
 const debug = require('debug')('poker-service:socket-connection-handler');
 const Table = require('../models/table');
+const { getUser } = require('../utils/game-event-handler');
+const { getSeatIndex } = require('../utils/game-event-handler');
+const { onActionTaken } = require('../utils/game-event-handler');
+const { startActionTimeout } = require('../utils/game-event-handler');
+const { baseResponse } = require('../utils/game-event-handler');
+const { handlePostActionEvents } = require('../utils/game-event-handler');
+const { sendToOthers } = require('../utils/socket');
+const { sendToAll } = require('../utils/socket');
 
-const baseResponse = (socket, id) => {
-  const index = getSeatIndex(socket, id);
-
-  return {
-    seatIndex: index,
-    table: Table.getTable(id),
-    automaticActions: Table.getAutomaticActions(id, index),
-    holeCards: Table.getHoleCards(id, index),
-  }
-}
-
-const sendTo = (sockets, id, event, baseResponse, extra) => {
-  sockets.forEach(socket => {
-    socket.emit(event, {
-      ...baseResponse(socket, id),
-      ...extra,
-    })
-  })
-}
-
-const sendToOthers = (socket, id, event, baseResponse = () => ({}), extra = {}) => {
-  sendTo(socket.to(id), id, event, baseResponse, extra);
-}
-
-const sendToAll = (socket, id, event, baseResponse = () => ({}), extra = {}) => {
-  sendTo(socket.in(id), id, event, baseResponse, extra);
-}
-
-const getUser = socket => {
-  const user = socket.request.session.user;
-
-  if (!user) {
-    throw new Error('Missing user');
-  }
-
-  return user;
-};
-
-const getSeatIndex = (socket, id) => {
-  const user = getUser(socket);
-  const table = Table.getTable(id);
-  return table.reservations.findIndex(reservation => reservation?.uid === user.uid);
-};
-
-const postActionEvents = (socket, id) => {
-  if (Table.isHandInProgress(id) && !Table.isBettingRoundInProgress(id)) {
-    Table.endBettingRound(id);
-    sendToAll(socket, id, 'bettingRoundEnd', baseResponse)
-
-    if (Table.areBettingRoundsCompleted(id)) {
-      Table.showdown(id)
-      sendToAll(socket, id, 'showdown', baseResponse)
-
-      if (Table.numOfSeatedPlayers(id) > 1) {
-        Table.startHand(id)
-        sendToAll(socket, id, 'startHand', baseResponse)
-      }
-    }
-  }
-}
+const reconnectTimeouts = {};
 
 const socketConnectionHandler = (socket, app) => {
   debug('Socket connection');
@@ -72,58 +21,77 @@ const socketConnectionHandler = (socket, app) => {
   socket.on('close', event => {
     debug('Socket close');
     try {
+      const ids = [...socket.subscriptions];
+      const user = getUser(socket);
+      if (user?.uid) {
+        clearTimeout(reconnectTimeouts[user.uid]);
+        reconnectTimeouts[user.uid] = setTimeout(() => {
+          ids.forEach(id => {
+            const index = getSeatIndex(socket, id);
+            Table.standUp(id, index);
+            Table.cancelReservation(id, index);
+            sendToOthers(socket, id, 'standUp', baseResponse);
+            handlePostActionEvents(socket, id);
+          });
+        }, 3 * 60 * 1000);
+      }
       socket.leaveAll();
-    } catch(error) {
+    } catch (error) {
       debug('Socket close error', error);
     }
   });
 
   socket.on('join', (params, fn) => {
-    debug('join', params)
+    debug('join', params);
     try {
       const { id } = params;
+      const user = getUser(socket);
+      if (user?.uid) {
+        clearTimeout(reconnectTimeouts[user.uid]);
+        delete reconnectTimeouts[user.uid];
+      }
       socket.join(id);
       fn(null, baseResponse(socket, id));
-    } catch(error) {
-      debug('join error', error)
+    } catch (error) {
+      debug('join error', error);
     }
   });
 
   socket.on('reserveSeat', (params, fn) => {
-    debug('reserveSeat', params)
+    debug('reserveSeat', params);
     try {
       const { id, index } = params;
       const user = getUser(socket);
       Table.setReservation(id, index, user);
       fn(null, baseResponse(socket, id));
 
-      sendToOthers(socket, id, 'reserveSeat', baseResponse)
+      sendToOthers(socket, id, 'reserveSeat', baseResponse);
     } catch (error) {
-      debug('reserveSeat error', error)
+      debug('reserveSeat error', error);
       fn(error);
     }
   });
 
   socket.on('cancelReservation', (params, fn) => {
-    debug('cancelReservation', params)
+    debug('cancelReservation', params);
     try {
       const { id } = params;
       const index = getSeatIndex(socket, id);
       Table.cancelReservation(id, index);
       fn(null, baseResponse(socket, id));
-      sendToOthers(socket, id, 'cancelReservation', baseResponse)
+      sendToOthers(socket, id, 'cancelReservation', baseResponse);
     } catch (error) {
-      debug('cancelReservation error', error)
+      debug('cancelReservation error', error);
       fn(error);
     }
   });
 
   socket.on('sitDown', (params, fn) => {
-    debug('sitDown', params)
+    debug('sitDown', params);
     try {
       const { id, name, buyIn, avatarStyle } = params;
       const user = getUser(socket);
-      const index = getSeatIndex(socket, id)
+      const index = getSeatIndex(socket, id);
 
       if (typeof name !== 'string') {
         throw new Error('Missing display name');
@@ -154,40 +122,41 @@ const socketConnectionHandler = (socket, app) => {
       Table.sitDown(id, index, buyIn);
 
       fn(null, baseResponse(socket, id));
-      sendToOthers(socket, id, 'sitDown', baseResponse)
+      sendToOthers(socket, id, 'sitDown', baseResponse);
 
       if (Table.numOfSeatedPlayers(id) > 1 && !Table.isHandInProgress(id)) {
-        Table.startHand(id)
-        sendToAll(socket, id, 'startHand', baseResponse)
+        Table.startHand(id);
+        sendToAll(socket, id, 'startHand', baseResponse);
+        startActionTimeout(socket, id);
       }
     } catch (error) {
-      debug('sitDown error', error)
+      debug('sitDown error', error);
       fn(error);
     }
   });
 
   socket.on('standUp', (params, fn) => {
-    debug('standUp', params)
+    debug('standUp', params);
 
     try {
       const { id } = params;
-      const index = getSeatIndex(socket, id)
-      Table.standUp(id, index)
-      Table.cancelReservation(id, index)
+      const index = getSeatIndex(socket, id);
+      Table.standUp(id, index);
+      Table.cancelReservation(id, index);
       fn(null, baseResponse(socket, id));
-      sendToOthers(socket, id, 'standUp', baseResponse)
+      sendToOthers(socket, id, 'standUp', baseResponse);
 
-      postActionEvents(socket, id)
-    } catch(error) {
-      debug('standUp error', error)
-      fn(error)
+      handlePostActionEvents(socket, id);
+    } catch (error) {
+      debug('standUp error', error);
+      fn(error);
     }
-  })
+  });
 
-  socket.on('actionTaken', (params, fn) => {
-    debug('actionTaken', params)
+  socket.on('actionTaken', (params, callback) => {
+    debug('onActionTaken', params)
     try {
-      const { id, action, betSize } = params;
+      const { id } = params;
       const index = getSeatIndex(socket, id)
 
       if (index === -1) {
@@ -198,58 +167,26 @@ const socketConnectionHandler = (socket, app) => {
         throw new Error('Action out of turn');
       }
 
-      const prevSeats = Table.getSeats(id);
+      onActionTaken(socket, params);
 
-      const unfoldingAutomaticActions = Table.unfoldingAutomaticActions(id);
-      Table.actionTaken(id, action, betSize);
-
-      const areAutomaticActionsAmended = Table.isBettingRoundInProgress(id)
-        && unfoldingAutomaticActions[Table.getPlayerToAct(id)]
-
-      if (areAutomaticActionsAmended) {
-        // Automatic action was amended. Just nullify the array.
-        unfoldingAutomaticActions.fill(null);
-      }
-
-      const extra = {
-        actor: getSeatIndex(socket, id),
-        action,
-        unfoldingAutomaticActions: unfoldingAutomaticActions.map((action, index) => {
-          switch(action) {
-            case 'check/fold':
-              return Table.getHandPlayers(id)[index] ? 'check' : 'fold';
-            case 'call any':
-              return prevSeats[index].betSize < Table.getSeats(id)[index].betSize
-                ? 'call'
-                // Automatic action call (any) was preceded by checks
-                : 'check'
-            default:
-              return action;
-          }
-        }),
-      }
-
-      fn(null);
-      sendToAll(socket, id, 'actionTaken', baseResponse, extra);
-
-      postActionEvents(socket, id)
-    } catch (error) {
-      debug('actionTaken error', error)
-      fn(error);
+      callback(null);
+    } catch(error) {
+      debug('onActionTaken Error', error)
+      callback(error);
     }
   });
 
   socket.on('setAutomaticAction', (params, fn) => {
-    debug('setAutomaticAction', params)
+    debug('setAutomaticAction', params);
     try {
       const { id, action } = params;
       const index = getSeatIndex(socket, id);
       Table.setAutomaticAction(id, index, action);
       fn(null, {
-        automaticActions: Table.getAutomaticActions(id, index)
+        automaticActions: Table.getAutomaticActions(id, index),
       });
     } catch (error) {
-      debug('setAutomaticAction error', error)
+      debug('setAutomaticAction error', error);
       fn(error);
     }
   });
