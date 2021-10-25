@@ -1,4 +1,5 @@
 const Poker = require('poker-ts');
+const debug = require('debug')('poker-service:table');
 
 const tables = {};
 
@@ -71,6 +72,7 @@ const getTable = id => {
 };
 
 const createTable = (id, forcedBets) => {
+  debug('Create table', id, forcedBets)
   if (tables[id]) {
     throw new Error('Table already exists');
   }
@@ -84,6 +86,7 @@ const createTable = (id, forcedBets) => {
 };
 
 const setReservation = (id, index, player) => {
+  debug('Set reservation', id, index, player)
   const table = tables[id];
   if (!table) {
     throw new Error('Table not found');
@@ -111,6 +114,7 @@ const setReservation = (id, index, player) => {
 };
 
 const updateReservation = (id, index, player) => {
+  debug('Update reservation', id, index, player)
   const table = tables[id];
 
   if (!table) {
@@ -131,6 +135,7 @@ const updateReservation = (id, index, player) => {
 };
 
 const cancelReservation = (id, index) => {
+  debug('Cancel reservation', id, index)
   const table = tables[id];
   if (!table) {
     throw new Error('Table not found');
@@ -154,30 +159,35 @@ const cancelReservation = (id, index) => {
 };
 
 const sitDown = (id, index, buyIn) => {
+  debug('Sit down', id, index, buyIn)
   const table = tables[id];
   table.sitDown(index, buyIn);
   return serializeTable(table);
 };
 
 const standUp = (id, index) => {
+  debug('Stand up', id, index)
   const table = tables[id];
   table.standUp(index)
   return serializeTable(table)
 }
 
 const startHand = id => {
+  debug('Start hand', id)
   const table = tables[id];
   table.startHand();
   return serializeTable(table);
 };
 
 const actionTaken = (id, action, betSize) => {
+  debug('Action taken', id, action, betSize)
   const table = tables[id];
   table.actionTaken(action, betSize);
   return serializeTable(table);
 };
 
 const setAutomaticAction = (id, index, action) => {
+  debug('Set automatic action', id, index, action)
   const table = tables[id];
   table.setAutomaticAction(index, action);
   return serializeTable(table);
@@ -207,12 +217,14 @@ const getHoleCards = (id, index) => {
 };
 
 const endBettingRound = id => {
+  debug('End betting round', id)
   const table = tables[id];
   table.endBettingRound();
   return serializeTable(table);
 };
 
 const showdown = id => {
+  debug('Showdown', id)
   const table = tables[id];
   table.showdown();
   return serializeTable(table);

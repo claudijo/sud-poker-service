@@ -28,10 +28,12 @@ const socketConnectionHandler = (socket, app) => {
         reconnectTimeouts[user.uid] = setTimeout(() => {
           ids.forEach(id => {
             const index = getSeatIndex(socket, id);
-            Table.standUp(id, index);
-            Table.cancelReservation(id, index);
-            sendToOthers(socket, id, 'standUp', baseResponse);
-            handlePostActionEvents(socket, id);
+            if (index > -1) {
+              Table.standUp(id, index);
+              Table.cancelReservation(id, index);
+              sendToOthers(socket, id, 'standUp', baseResponse);
+              handlePostActionEvents(socket, id);
+            }
           });
         }, 3 * 60 * 1000);
       }
@@ -145,7 +147,6 @@ const socketConnectionHandler = (socket, app) => {
       Table.cancelReservation(id, index);
       fn(null, baseResponse(socket, id));
       sendToOthers(socket, id, 'standUp', baseResponse);
-
       handlePostActionEvents(socket, id);
     } catch (error) {
       debug('standUp error', error);

@@ -33,7 +33,7 @@ const startActionTimeout = (socket, id) => {
     } catch (error) {
       console.error('Error folding timed out player', error);
     }
-  }, 10 * 1000)
+  }, 40 * 1000)
 }
 
 const baseResponse = (socket, id) => {
@@ -66,7 +66,7 @@ const handlePostActionEvents = (socket, id) => {
     } else {
       startActionTimeout(socket, id);
     }
-  } else {
+  } else if (Table.isHandInProgress(id)) {
     startActionTimeout(socket, id);
   }
 }
