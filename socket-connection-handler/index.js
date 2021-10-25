@@ -48,10 +48,15 @@ const socketConnectionHandler = (socket, app) => {
     try {
       const { id } = params;
       const user = getUser(socket);
+      if (!user) {
+        throw new Error('Missing user')
+      }
+
       if (user?.uid) {
         clearTimeout(reconnectTimeouts[user.uid]);
         delete reconnectTimeouts[user.uid];
       }
+
       socket.join(id);
       fn(null, baseResponse(socket, id));
     } catch (error) {
@@ -64,6 +69,10 @@ const socketConnectionHandler = (socket, app) => {
     try {
       const { id, index } = params;
       const user = getUser(socket);
+      if (!user) {
+        throw new Error('Missing user')
+      }
+
       Table.setReservation(id, index, user);
       fn(null, baseResponse(socket, id));
 
@@ -93,6 +102,10 @@ const socketConnectionHandler = (socket, app) => {
     try {
       const { id, name, buyIn, avatarStyle } = params;
       const user = getUser(socket);
+      if (!user) {
+        throw new Error('Missing user')
+      }
+
       const index = getSeatIndex(socket, id);
 
       if (typeof name !== 'string') {

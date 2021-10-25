@@ -5,11 +5,6 @@ const actionTimeouts = {}
 
 const getUser = socket => {
   const user = socket.request.session.user;
-
-  if (!user) {
-    throw new Error('Missing user');
-  }
-
   return user;
 };
 
