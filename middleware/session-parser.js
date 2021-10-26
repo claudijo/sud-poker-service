@@ -6,7 +6,7 @@ const sessionParser = cookieSession({
 
     // Cookie Options
     maxAge: 24 * 60 * 60 * 1000 * 365, // 1 year
-    secure: process.env.NODE_ENV !== 'development',
+    //secure: process.env.NODE_ENV !== 'development',
     httpOnly: true,
 })
 
